@@ -27,7 +27,7 @@ export const createTrip = async (req:Request , res:Response)=>{
             });
         }
 
-        const {data: cardata, error }=await supabase
+        const {data: cardata, error:carerror }=await supabase
         .from('Cars')
         .select()
         .match({
@@ -36,24 +36,51 @@ export const createTrip = async (req:Request , res:Response)=>{
         })
         .single();
 
+        if(!cardata || carerror){
+            return res.status(500).json({msg:"Server error",error:carerror})
+        }
+
+        const {data: occupied ,error: occupyerror}=await supabase
+        .from("trips")
+        .select()
+        .match({
+            "owner_id":id,
+            "car_id":car_id
+        })
+        .lte("trip_start_date",trip_end_date)
+        .gte("trip_end_date",trip_start_date);
+        
 
 
-        // const {error }=await supabase
-        // .from('trips')
-        // .insert({
-        //     car_number: car_number.split(" ").join('').toUpperCase(),
-        //     owner_name: full_name,
-        //     owner_id : id,
-        //     car_id:car_id,
-        //     car_name:car_name,
-        //     business_name:business_name,
-        //     trip_start_date:trip_start_date,
-        //     trip_end_date:trip_end_date,
-        //     customer_name:customer_name,
-        //     total_distance:total_distance,
-        //     total_cost:total_cost,
-        //     profit:profit
-        // });
+        if(occupyerror){
+            return res.status(500).json({message: occupyerror?.message})
+        }
+        if(occupied && occupied.length > 0){
+            return res.status(409).json({
+                message:`The car is already booked from ${occupied[0].trip_start_date} to ${occupied[0].trip_end_date} `
+            })
+        }
+
+
+        const total_cost:number = total_distance * cardata.price_perKm + cardata.driver_cost;
+
+        const profit:number=total_cost - (total_distance*cardata.mileage);
+        const {error }=await supabase
+        .from('trips')
+        .insert({
+            car_number: cardata.car_number,
+            owner_name: full_name,
+            owner_id : id,
+            car_id:car_id,
+            car_name:cardata.model,
+            business_name:business_name,
+            trip_start_date:trip_start_date,
+            trip_end_date:trip_end_date,
+            customer_name:customer_name,
+            total_distance:total_distance,
+            total_cost:total_cost,
+            profit:profit
+        });
 
         if(error){
             console.log(error)
@@ -64,7 +91,6 @@ export const createTrip = async (req:Request , res:Response)=>{
 
         return res.status(201).json({
             status:"Success",
-            msg:cardata
         });
 
 
@@ -87,12 +113,12 @@ export const getAllTrips= async ( req :Request , res:Response)=>{
         const { id , role ,full_name }=req.profile;
         if(role !== "owner"){
             return res.status(403).json({
-                message:"Don't have access to fetch cars"
+                message:"Don't have access to fetch trips"
             })
         }
 
         const {data , error }= await supabase
-        .from('Cars')
+        .from('trips')
         .select()
         .eq('owner_id',id);
 
@@ -123,14 +149,14 @@ export const getSingleTrip = async ( req :Request , res:Response)=>{
                 message:"Don't have access to fetch cars"
             })
         }
-        const carId = req.params.carid;
+        const tripId = req.params.tripid;
         
         const {data , error }= await supabase
-        .from('Cars')
+        .from('trips')
         .select()
         .match({
             'owner_id':id,
-            'id':carId
+            'id':tripId
         })
         .single()
 
@@ -138,7 +164,7 @@ export const getSingleTrip = async ( req :Request , res:Response)=>{
 
         return res.status(200).json({
             status:"Success",
-            data:{...data}
+            data:data
         })
         } catch (error) {
             return res.status(500).json({
@@ -148,6 +174,9 @@ export const getSingleTrip = async ( req :Request , res:Response)=>{
         }
 }
 
+
+
+// TODO  edit trip api refactor whole
 export const editTrip = async ( req: Request , res:Response)=>{
     try {
          if(!req.profile){
@@ -193,7 +222,7 @@ export const editTrip = async ( req: Request , res:Response)=>{
     }
 }
 
-export const deleteCar = async ( req: Request , res:Response)=>{
+export const deleteTrip = async ( req: Request , res:Response)=>{
     try {
          if(!req.profile){
             return res.status(401).json({

@@ -237,22 +237,22 @@ export const deleteTrip = async ( req: Request , res:Response)=>{
         }
 
 
-        const carId = req.params.carid;
-        const {error }=await supabase
-        .from('Cars')
-        .update({
-            deleted: true
-        })
+        const tripId = req.params.tripid;
+        const {data , error }=await supabase
+        .from('trips')
+        .delete()
         .match({
             'owner_id':id,
-            'id':carId
-        })
+            'id':tripId
+        });
+
+
         if(error) throw error;
         return res.status(204).json({status:"Success"});
     } catch (error) {
         console.log(error)
         return res.status(500).json({
-            status:"Failed to fetch",
+            status:"Failed to delete",
             message:error
         });
     }

@@ -174,6 +174,40 @@ export const editCar = async ( req: Request , res:Response)=>{
     }
 }
 
+export const toggleStatus = async ( req: Request , res:Response)=>{
+    try {
+         if(!req.profile){
+            return res.status(401).json({
+                message:"User does not exist"
+            })
+        }
+        const { id , role  }=req.profile;
+        if(role !== "owner"){
+            return res.status(403).json({
+                message:"Don't have access to edit cars"
+            })
+        }
+
+
+        const carId = req.params.carid;
+        
+        const {data , error}=await supabase
+            .rpc("toggleCarActive",{row_id:carId})
+
+
+
+        if(error) throw error;
+        return res.status(204).json({status:"Success"});
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({
+            status:"Failed to fetch",
+            message:error
+        });
+    }
+}
+
+
 export const deleteCar = async ( req: Request , res:Response)=>{
     try {
          if(!req.profile){
@@ -203,6 +237,55 @@ export const deleteCar = async ( req: Request , res:Response)=>{
         return res.status(204).json({status:"Success"});
     } catch (error) {
         console.log(error)
+        return res.status(500).json({
+            status:"Failed to fetch",
+            message:error
+        });
+    }
+}
+
+
+export const carSchedule = async (req:Request , res:Response)=>{
+    try {
+         if(!req.profile){
+            return res.status(401).json({
+                message:"User does not exist"
+            })
+        }
+        const { id , role  }=req.profile;
+        if(role !== "owner"){
+            return res.status(403).json({
+                message:"Don't have access to fetch schedule of car"
+            })
+        }
+        const carId =req.params.carid;
+
+        const { data , error}= await supabase
+        .from("trips")
+        .select()
+        .match({
+            "owner_id":id,
+            "car_id":carId
+        });
+
+        
+        if(!data || error){
+            return res.status(404).json({error:error});
+        }
+
+
+        const dates=data.map(date=>({
+            start:date.trip_start_date,
+            end:date.trip_end_date
+        }));
+
+
+        return res.status(200).json({
+            data:dates
+        })
+
+        
+    } catch (error) {
         return res.status(500).json({
             status:"Failed to fetch",
             message:error

@@ -10,17 +10,17 @@ export const createTrip = async (req:Request , res:Response)=>{
                 message:"User does not exist"
             })
         }
-        const { id , role ,full_name }=req.profile;
-        if(role !== "owner"){
-            return res.status(403).json({
-                message:"Don't have access to create car"
-            })
-        }
+        const { id , role  }=req.profile;
+        // if(role !== "owner"){
+        //     return res.status(403).json({
+        //         message:"Don't have access to create car"
+        //     })
+        // }
         if (!req.body) {
             return res.status(400).json({ message: "Request body missing" });
         }
 
-        const {business_name, car_id,  total_distance,  trip_start_date , trip_end_date ,customer_name} = req.body;
+        const { car_id,  total_distance,  trip_start_date , trip_end_date ,customer_name , total_days} = req.body;
         if ( !total_distance || !trip_start_date || !trip_end_date ) {
             return res.status(400).json({
             message: "Missing required fields"
@@ -31,20 +31,31 @@ export const createTrip = async (req:Request , res:Response)=>{
         .from('Cars')
         .select()
         .match({
-            'id':car_id,
-            'owner_id':id
+            'id':car_id
         })
         .single();
 
         if(!cardata || carerror){
-            return res.status(500).json({msg:"Server error",error:carerror})
+            return res.status(500).json({msg:"Server error",error:carerror});
         }
+        const {data : ownerdata, error:ownererror}= await supabase
+        .from("profiles")
+        .select()
+        .match({
+            'id':cardata.owner_id,
+            "role":"owner"
+        });
 
+        if(!ownerdata || ownererror){
+            return res.status(404).json({msg:"The owner or business does not exist"});
+        }
+        if(!cardata.active){
+            return res.status(404).json({msg:"Car is under maintenance"});
+        }
         const {data: occupied ,error: occupyerror}=await supabase
         .from("trips")
         .select()
         .match({
-            "owner_id":id,
             "car_id":car_id
         })
         .lte("trip_start_date",trip_end_date)
@@ -62,24 +73,27 @@ export const createTrip = async (req:Request , res:Response)=>{
         }
 
 
-        const total_cost:number = total_distance * cardata.price_perKm + cardata.driver_cost;
+        const total_cost:number = total_distance * cardata.price_perKm + cardata.driver_cost + (total_days - 1) * cardata.extra_day_cost ;
 
-        const profit:number=total_cost - (total_distance*cardata.mileage);
+        const profit:number=total_cost - (total_distance*cardata.mileage) - cardata.driver_cost;
         const {error }=await supabase
         .from('trips')
         .insert({
             car_number: cardata.car_number,
-            owner_name: full_name,
-            owner_id : id,
+            owner_name: cardata.owner_name,
+            owner_id : cardata.owner_id,
             car_id:car_id,
             car_name:cardata.model,
-            business_name:business_name,
+            business_name:ownerdata[0].business_name,
             trip_start_date:trip_start_date,
             trip_end_date:trip_end_date,
             customer_name:customer_name,
             total_distance:total_distance,
             total_cost:total_cost,
-            profit:profit
+            profit:profit,
+            total_days:total_days,
+            booked_by_id:id,
+            booked_by_role:role
         });
 
         if(error){
@@ -117,10 +131,39 @@ export const getAllTrips= async ( req :Request , res:Response)=>{
             })
         }
 
-        const {data , error }= await supabase
+        let query =supabase
         .from('trips')
         .select()
         .eq('owner_id',id);
+
+        if(req.query.month){
+            const start=`${req.query.month}-01`;
+            let end=`${req.query.month}-01`;
+            let a=end.split("-");
+            const num=a.map(Number);
+            if(num[1]===12){
+                num[0]! +=1;
+                num[1]=1;
+            }else{
+                num[1]! +=1;
+            }
+            a=num.map(String);
+            end=a.join("-");
+            query=query
+            .gte("trip_start_date",start)
+            .lt("trip_end_date",end)
+        }
+
+        if(req.query.carId){
+            query =query
+            .eq("car_id",req.query.carId);
+        }
+        if(req.query.status){
+            query= query
+            .eq("trip_completed",req.query.status);
+        }
+
+        const {data , error }= await query;
 
         if(error) throw error;
 
@@ -187,29 +230,27 @@ export const editTrip = async ( req: Request , res:Response)=>{
         const { id , role  }=req.profile;
         if(role !== "owner"){
             return res.status(403).json({
-                message:"Don't have access to edit cars"
+                message:"Don't have access to edit trip"
             })
         }
 
 
-        const {driver_cost, mileage , price_perKm, extra_day_cost}=req.body;
-        if (!driver_cost || !extra_day_cost || !price_perKm || !mileage ) {
-            return res.status(400).json({
-            message: "Missing required fields"
-            });
-        }
-        const carId = req.params.carid;
+        const {trip_start_date, trip_end_date , total_distance, total_days}=req.body;
+        // if (!driver_cost || !extra_day_cost || !price_perKm || !mileage ) {
+        //     return res.status(400).json({
+        //     message: "Missing required fields"
+        //     });
+        // }
+        
+        const tripId = req.params.tripid;
         const {error }=await supabase
-        .from('Cars')
+        .from('trips')
         .update({
-            driver_cost:driver_cost,
-            mileage:mileage,
-            price_perKm : price_perKm,
-            extra_day_cost:extra_day_cost,
+            
         })
         .match({
             'owner_id':id,
-            'id':carId
+            'id':tripId
         })
         if(error) throw error;
 
@@ -222,7 +263,7 @@ export const editTrip = async ( req: Request , res:Response)=>{
     }
 }
 
-export const deleteTrip = async ( req: Request , res:Response)=>{
+export const deleteTrip = async ( req: Request , res:Response)=>{0
     try {
          if(!req.profile){
             return res.status(401).json({

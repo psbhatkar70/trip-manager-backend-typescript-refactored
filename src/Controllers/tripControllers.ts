@@ -298,3 +298,69 @@ export const deleteTrip = async ( req: Request , res:Response)=>{0
         });
     }
 }
+
+
+//canceling trip users side
+
+export const cancelTripByUser = async ( req:Request , res:Response)=>{
+    try {
+        if(!req.profile){
+            return res.status(401).json({
+                message:"User does not exist"
+            })
+        }
+        const { id  }=req.profile;
+        const tripId = req.params.tripid;
+        
+        const {data , error}= await supabase
+        .from("trips")
+        .select()
+        .match({
+            "booked_by_id":id,
+            "id":tripId
+        });
+        
+
+
+        if(error || !data){
+            return res.status(404).json({msg:"Not found", error:error?.message});
+        }
+
+        
+        const today = new Date();
+        
+        const dbdate = new Date(data[0].trip_start_date);
+
+        const daysgap=Math.floor((dbdate.getTime()-today.getTime())/86400000);
+        if(daysgap>=2){
+            const {error}=await supabase
+            .from("trips")
+            .delete()
+            .eq("id",tripId);
+
+            return res.status(200).json({
+                message:"Trip deleted successfully!"
+            })
+        }else if(daysgap>=1){
+            const {error}=await supabase
+            .from("trips")
+            .delete()
+            .eq("id",tripId);
+
+            return res.status(204).json({
+                message:"Trip deleted successfully but only one day is remaining so you will be charged and wont get full refund!"
+            })
+        }else{
+            return res.status(404).json({
+                message:"The trip is either completed or is in process."
+            });
+
+        }
+
+    } catch (error) {
+        return res.status(500).json({
+            status:"Failed to cancel",
+            message:error
+        });
+    }
+}

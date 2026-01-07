@@ -75,7 +75,10 @@ export const getAllCars= async ( req :Request , res:Response)=>{
         const {data , error }= await supabase
         .from('Cars')
         .select()
-        .eq('owner_id',id);
+        .match({
+            'owner_id':id,
+            "deleted":false
+        });
 
         if(error) throw error;
 
@@ -111,7 +114,8 @@ export const getSingleCar = async ( req :Request , res:Response)=>{
         .select()
         .match({
             'owner_id':id,
-            'id':carId
+            'id':carId,
+            "deleted":false
         })
         .single()
 
@@ -161,7 +165,8 @@ export const editCar = async ( req: Request , res:Response)=>{
         })
         .match({
             'owner_id':id,
-            'id':carId
+            'id':carId,
+            "deleted":false
         })
         if(error) throw error;
 
@@ -265,7 +270,8 @@ export const carSchedule = async (req:Request , res:Response)=>{
         .select()
         .match({
             "owner_id":id,
-            "car_id":carId
+            "car_id":carId,
+            "deleted":false
         });
 
         

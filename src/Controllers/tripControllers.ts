@@ -27,6 +27,19 @@ export const createTrip = async (req:Request , res:Response)=>{
             });
         }
 
+        const today = new Date();
+        const startdate= new Date(trip_start_date);
+
+        const prevdate=Math.floor((startdate.getTime()-today.getTime())/86400000)+1;
+
+        if(prevdate<=0){
+            return res.status(400).json({
+                message:"You can not book in past dates or less than 12 hours duration"
+            })
+        }
+
+
+
         const {data: cardata, error:carerror }=await supabase
         .from('Cars')
         .select()
@@ -263,41 +276,43 @@ export const editTrip = async ( req: Request , res:Response)=>{
     }
 }
 
-export const deleteTrip = async ( req: Request , res:Response)=>{0
-    try {
-         if(!req.profile){
-            return res.status(401).json({
-                message:"User does not exist"
-            })
-        }
-        const { id , role  }=req.profile;
-        if(role !== "owner"){
-            return res.status(403).json({
-                message:"Don't have access to edit cars"
-            })
-        }
+// export const deleteTrip = async ( req: Request , res:Response)=>{0
+//     try {
+//          if(!req.profile){
+//             return res.status(401).json({
+//                 message:"User does not exist"
+//             })
+//         }
+//         const { id , role  }=req.profile;
+//         if(role !== "owner"){
+//             return res.status(403).json({
+//                 message:"Don't have access to edit cars"
+//             })
+//         }
 
 
-        const tripId = req.params.tripid;
-        const {data , error }=await supabase
-        .from('trips')
-        .delete()
-        .match({
-            'owner_id':id,
-            'id':tripId
-        });
+//         const tripId = req.params.tripid;
+//         const {data , error }=await supabase
+//         .from('trips')
+//         .update({
+//             status_cancelled:
+//         })
+//         .match({
+//             'owner_id':id,
+//             'id':tripId
+//         });
 
 
-        if(error) throw error;
-        return res.status(204).json({status:"Success"});
-    } catch (error) {
-        console.log(error)
-        return res.status(500).json({
-            status:"Failed to delete",
-            message:error
-        });
-    }
-}
+//         if(error) throw error;
+//         return res.status(204).json({status:"Success"});
+//     } catch (error) {
+//         console.log(error)
+//         return res.status(500).json({
+//             status:"Failed to delete",
+//             message:error
+//         });
+//     }
+// }
 
 
 //canceling trip users side
@@ -331,11 +346,14 @@ export const cancelTripByUser = async ( req:Request , res:Response)=>{
         
         const dbdate = new Date(data[0].trip_start_date);
 
-        const daysgap=Math.floor((dbdate.getTime()-today.getTime())/86400000);
+        const daysgap=Math.floor((dbdate.getTime()-today.getTime())/86400000)+1;
+        console.log(daysgap)
         if(daysgap>=2){
             const {error}=await supabase
             .from("trips")
-            .delete()
+            .update({
+                status_cancelled:"YES:F"
+            })
             .eq("id",tripId);
 
             return res.status(200).json({
@@ -344,7 +362,9 @@ export const cancelTripByUser = async ( req:Request , res:Response)=>{
         }else if(daysgap>=1){
             const {error}=await supabase
             .from("trips")
-            .delete()
+            .update({
+                status_cancelled:"YES:P"
+            })
             .eq("id",tripId);
 
             return res.status(204).json({

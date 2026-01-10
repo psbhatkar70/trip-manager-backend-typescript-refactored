@@ -43,39 +43,6 @@ export const createTrip = async (req:Request , res:Response)=>{
             })
         }
 
-
-
-//         const {data: cardata, error:carerror }=await supabase
-//         .from('Cars')
-//         .select()
-//         .match({
-//             'id':car_id
-//         })
-//         .single();
-
-//         if(!cardata || carerror){
-//             return res.status(500).json({msg:"Server error",error:carerror});
-//         }
-//         const {data : ownerdata, error:ownererror}= await supabase
-//         .from("profiles")
-//         .select()
-//         .match({
-//             'id':cardata.owner_id,
-//             "role":"owner"
-//         });
-
-//         if(!ownerdata || ownererror){
-//             return res.status(404).json({msg:"The owner or business does not exist"});
-//         }
-//         if(!cardata.active){
-//             return res.status(404).json({msg:"Car is under maintenance"});
-//         }
-        
-
-///
-        // const total_cost:number = total_distance * cardata.price_perKm + cardata.driver_cost + (total_days - 1) * cardata.extra_day_cost ;
-
-        // const profit:number=total_cost - (total_distance*cardata.mileage) - cardata.driver_cost;
         const {error }=await supabase
         .rpc("create_trip_rpc",{
             p_user_id :id,

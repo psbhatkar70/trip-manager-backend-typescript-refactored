@@ -65,7 +65,7 @@ export const getAllCars= async ( req :Request , res:Response)=>{
                 message:"User does not exist"
             })
         }
-        const { id , role ,full_name }=req.profile;
+        const { id , role  }=req.profile;
         if(role !== "owner"){
             return res.status(403).json({
                 message:"Don't have access to fetch cars"
@@ -232,7 +232,8 @@ export const deleteCar = async ( req: Request , res:Response)=>{
         const {error }=await supabase
         .from('Cars')
         .update({
-            deleted: true
+            deleted: true,
+            active:false
         })
         .match({
             'owner_id':id,

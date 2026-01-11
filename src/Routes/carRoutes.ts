@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { carSchedule, createCar, deleteCar, editCar, getAllCars, getSingleCar, toggleStatus } from "../Controllers/carControllers.js";
 import { profileinfo, protection } from "../Controllers/authController.js";
-createCar
+
 
 
 const router=Router();

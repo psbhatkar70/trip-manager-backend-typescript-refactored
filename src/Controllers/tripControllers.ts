@@ -171,7 +171,7 @@ export const getSingleTrip = async ( req :Request , res:Response)=>{
         .from('trips')
         .select()
         .match({
-            'owner_id':id,
+            'booked_by_id':id,
             'id':tripId
         })
         .neq("status_cancelled",true)

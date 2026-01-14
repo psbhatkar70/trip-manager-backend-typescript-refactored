@@ -1,5 +1,16 @@
 import type { Request, Response } from "express";
 import { supabase } from "../Models/database.js";
+import {  z } from "zod";
+
+
+const carSchema = z.object({
+    driver_cost: z.coerce.number().positive("Distance must be positive"),
+    mileage:z.coerce.number().positive("Distance must be positive"),
+    price_perKm:z.coerce.number().positive("Distance must be positive"),
+    extra_day_cost:z.coerce.number().positive("Distance must be positive")
+})
+
+
 
 export const createCar = async (req:Request , res:Response)=>{
     try {
@@ -19,7 +30,15 @@ export const createCar = async (req:Request , res:Response)=>{
             return res.status(400).json({ message: "Request body missing" });
         }
 
-        const {model, car_number, driver_cost, mileage , price_perKm, extra_day_cost} = req.body;
+        const validatedInput=carSchema.safeParse(req.body);
+        if(!validatedInput.success){
+            return res.status(400).json({ 
+            message: "Validation Error", 
+            errors: validatedInput.error.format()
+            });
+        }
+        const { driver_cost, mileage , price_perKm, extra_day_cost} = validatedInput.data;
+        const {model, car_number}=req.body;
         if (!model || !car_number || !price_perKm || !mileage ) {
             return res.status(400).json({
             message: "Missing required fields"
@@ -147,8 +166,14 @@ export const editCar = async ( req: Request , res:Response)=>{
             })
         }
 
-
-        const {driver_cost, mileage , price_perKm, extra_day_cost}=req.body;
+        const validatedInput=carSchema.safeParse(req.body);
+        if(!validatedInput.success){
+            return res.status(400).json({ 
+            message: "Validation Error", 
+            errors: validatedInput.error.format()
+            });
+        }
+        const {driver_cost, mileage , price_perKm, extra_day_cost}=validatedInput.data;
         if (!driver_cost || !extra_day_cost || !price_perKm || !mileage ) {
             return res.status(400).json({
             message: "Missing required fields"

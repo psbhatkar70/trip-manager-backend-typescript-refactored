@@ -1,6 +1,18 @@
 import type { Request, Response  } from "express";
 import { error } from "node:console";
 import { supabase } from "../Models/database.js";
+import {  z } from "zod";
+
+
+const tripSchema = z.object({
+    total_distance: z.coerce.number().positive("Distance must be positive"),
+    trip_start_date: z.coerce.date({ message: "Invalid start date" }),
+    trip_end_date: z.coerce.date({ message: "Invalid end date" }),
+    total_days: z.coerce.number().positive("Total number of days must be positive"),
+    customer_name: z.string(),
+    car_id: z.string().uuid()
+})
+
 
 export const createTrip = async (req:Request , res:Response)=>{
     try {
@@ -19,8 +31,16 @@ export const createTrip = async (req:Request , res:Response)=>{
         if (!req.body) {
             return res.status(400).json({ message: "Request body missing" });
         }
+        const validatedInput = tripSchema.safeParse(req.body);
 
-        const { car_id,  total_distance,  trip_start_date , trip_end_date ,customer_name , total_days} = req.body;
+        if(!validatedInput.success){
+            return res.status(400).json({ 
+            message: "Validation Error", 
+            errors: validatedInput.error.format() 
+        });
+        }
+
+        const { car_id,  total_distance,  trip_start_date , trip_end_date ,customer_name , total_days} = validatedInput.data;
         if ( !total_distance || !trip_start_date || !trip_end_date ) {
             return res.status(400).json({
             message: "Missing required fields"
@@ -194,7 +214,6 @@ export const getSingleTrip = async ( req :Request , res:Response)=>{
 
 
 
-// TODO  edit trip api refactor whole
 export const editTrip = async ( req: Request , res:Response)=>{
     try {
          if(!req.profile){
@@ -211,8 +230,15 @@ export const editTrip = async ( req: Request , res:Response)=>{
 
         const tripId = req.params.tripid;
 
+         const validatedInput = tripSchema.safeParse(req.body);
 
-        const {trip_start_date, trip_end_date , total_distance, total_days ,car_id }=req.body;
+        if(!validatedInput.success){
+            return res.status(400).json({ 
+            message: "Validation Error", 
+            errors: validatedInput.error.format() 
+        });
+        }
+        const {trip_start_date, trip_end_date , total_distance, total_days ,car_id }= validatedInput.data;
        
         const {data: occupied ,error: occupyerror}=await supabase
         .from("trips")

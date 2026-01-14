@@ -59,49 +59,26 @@ export const getAllreviews= async(req:Request , res:Response)=>{
                 message:"User does not exist"
             })
         }
-        const { id }=req.profile;
-        if(!req.params.ownerid){
-            const owner_id=id;
-
-            const {data ,error }=await supabase
+        const targetId = req.params.ownerid || req.profile.id;
+        const {data ,error }=await supabase
             .from("reviews")
             .select()
-            .eq("owner_id",owner_id);
+            .eq("owner_id",targetId);
 
-            if(error || !data){
+            if(error){
                 return res.status(400).json({
                     status:"Fail",
                     error:error
                 })
             }
+            if(data.length ===0){
+            return res.status(404).json({message:"The business does not have any reviews yet."});
+        };
 
             return res.status(200).json({
                 data:data
             })
-        }else if(req.params.ownerid){
-            const owner_id=req.params.ownerid;
 
-            const {data ,error }=await supabase
-            .from("reviews")
-            .select()
-            .eq("owner_id",owner_id);
-
-            if(error || !data){
-                return res.status(400).json({
-                    status:"Fail",
-                    error:error
-                })
-            }
-
-            return res.status(200).json({
-                data:data
-            })
-        }
-
-
-        return res.status(403).json({
-            error:"No user found!"
-        })
         
     } catch (error) {
         return res.status(500).json({
@@ -128,7 +105,7 @@ export const getReviewsCarSingle= async (req:Request , res:Response)=>{
             return res.status(400).json({
                 error:error,
             });
-        }else if(!data){
+        }else if(data.length ===0){
             return res.status(404).json({message:"The car does not have any reviews yet."});
         };
 
@@ -217,7 +194,7 @@ export const getTripReviewSingle =async (req:Request , res:Response)=>{
             return res.status(400).json({
                 error:error,
             });
-        }else if(!data){
+        }else if(data.length ===0){
             return res.status(404).json({message:"The trip does not have any reviews yet."});
         };
 

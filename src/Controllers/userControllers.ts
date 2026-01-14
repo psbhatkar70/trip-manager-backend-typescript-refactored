@@ -31,7 +31,7 @@ export const getAllBusiness= async (req:Request , res:Response)=>{
         return res.status(200).json({
             data:data,
             totalRows:count,
-            totalPages:count/limit
+            totalPages:Math.ceil(count/limit)
         });
         
     } catch (error) {

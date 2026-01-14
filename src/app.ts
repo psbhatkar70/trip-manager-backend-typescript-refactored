@@ -3,7 +3,8 @@ import type {Request , Response } from 'express';
 import authRoutes from './Routes/authRoutes.js';
 import tripRoutes from './Routes/tripRoutes.js';
 import carRoutes from './Routes/carRoutes.js';
-import reviewRoutes from './Routes/reviewRoutes.js'
+import reviewRoutes from './Routes/reviewRoutes.js';
+import userRoutes from './Routes/userRoutes.js';
 import 'dotenv/config';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
@@ -20,10 +21,12 @@ app.use(limitter);
 app.use(helmet());
 app.use(express.json());
 
-app.use('/users',authRoutes);
+app.use('/auth',authRoutes);
 app.use('/trips',tripRoutes);
 app.use('/cars',carRoutes);
 app.use('/review',reviewRoutes);
+app.use('/user',userRoutes);
+
 
 
 

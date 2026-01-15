@@ -132,6 +132,8 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql;
+```
+
 ### Benefits
 
 - One API call → one DB transaction
@@ -153,9 +155,7 @@ Calculating average ratings dynamically using `AVG()` leads to O(N) scans and de
 
 FleetFlow maintains aggregate statistics incrementally using PostgreSQL triggers, guaranteeing constant-time updates with full transactional safety.
 
-```
-
-sql
+```sql
 CREATE OR REPLACE FUNCTION updateReviewAvg()
 RETURNS trigger AS $$
 BEGIN
@@ -172,6 +172,7 @@ END;
 
 $$
 LANGUAGE plpgsql;
+```
 
 ### Why This Scales
 
@@ -194,12 +195,12 @@ LANGUAGE plpgsql;
 
 ## 🔌 API Overview
 
-| Method | Endpoint | Description | Access |
-|------|--------|------------|--------|
-| POST | `/api/trips` | Create a new trip (atomic & validated) | Auth |
-| GET | `/api/trips` | Paginated trip history | User / Owner |
-| PATCH | `/api/trips/:id` | Modify or cancel trip | Owner |
-| POST | `/api/reviews` | Add review (auto-aggregated) | User |
+| Method | Endpoint         | Description                            | Access       |
+| ------ | ---------------- | -------------------------------------- | ------------ |
+| POST   | `/api/trips`     | Create a new trip (atomic & validated) | Auth         |
+| GET    | `/api/trips`     | Paginated trip history                 | User / Owner |
+| PATCH  | `/api/trips/:id` | Modify or cancel trip                  | Owner        |
+| POST   | `/api/reviews`   | Add review (auto-aggregated)           | User         |
 
 ---
 
@@ -230,5 +231,5 @@ It is a production-oriented backend system designed around correctness, concurre
 
 This project reflects how I think about real-world systems—not just how I write endpoints.
 
-
+$$
 $$

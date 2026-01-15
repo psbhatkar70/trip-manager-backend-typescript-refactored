@@ -45,6 +45,19 @@ Instead of relying on fragile API-layer checks, FleetFlow enforces correctness a
 - Data Security: Row Level Security (RLS)
 
 ---
+## 👥 Role-Based Access Control (RBAC)
+
+The system enforces strict permission boundaries using custom Middleware:
+
+### 🚗 Fleet Owners
+- **Inventory Management:** Create, Edit, and "Soft Delete" vehicles.
+- **Financials:** View total profit, revenue, and trip history.
+- **Availability:** Toggle car status (Online/Maintenance) via RPCs.
+
+### 👤 Customers
+- **Booking Engine:** Search cars by date range with overlap prevention.
+- **Trip Management:** Cancel trips with dynamic refund logic (Full refund > 48h).
+- **Reviews:** Post ratings that auto-update the car's average score via Triggers.
 
 ## 💡 Key Architectural Decisions
 

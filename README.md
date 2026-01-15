@@ -34,7 +34,7 @@ Instead of relying on fragile API-layer checks, FleetFlow enforces correctness a
 - Runtime: Node.js (Express)
 - Language: TypeScript (Strict Mode)
 - Validation: Zod (Runtime Schema Validation)
-- Security: Helmet, Rate Limiting, Centralized Error Handling
+- Security: Helmet, Rate Limiting
 
 ### Database
 
@@ -99,39 +99,127 @@ FleetFlow encapsulates the entire workflow inside a single PostgreSQL stored pro
 
 ```sql
 CREATE OR REPLACE FUNCTION create_trip_rpc(
-  car_id uuid,
-  user_id uuid,
-  start_date timestamptz,
-  end_date timestamptz
-) RETURNS json
+  p_user_id uuid,
+  p_car_id uuid,
+  p_total_distance numeric,
+  p_trip_start_date timestamptz,
+  p_trip_end_date timestamptz,
+  p_customer_name text,
+  p_total_days numeric,
+  p_role text
+)
+
+RETURNS TABLE (
+  trip_id uuid,
+  total_cost numeric,
+  profit numeric
+)
+
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-BEGIN
-  -- Availability enforced by exclusion constraint
-  -- Pricing logic calculated atomically
 
-  INSERT INTO trips (
-    car_id,
-    booked_by_id,
-    trip_start_date,
-    trip_end_date,
-    total_cost
+DECLARE 
+v_price_perKm numeric;
+v_driver_cost numeric;
+v_extra_day_cost numeric;
+v_total_cost numeric;
+v_mileage numeric;
+v_profit numeric;
+v_model text;
+v_business_name text;
+v_owner_id uuid;
+v_car_number text;
+v_owner_name text;
+v_active boolean;
+BEGIN 
+SELECT
+  "price_perKm",
+  driver_cost,
+  extra_day_cost,
+  mileage,
+  model,
+  owner_id,
+  car_number,
+  active
+INTO 
+  v_price_perKm,
+  v_driver_cost,
+  v_extra_day_cost,
+  v_mileage,
+  v_model,
+  v_owner_id,
+  v_car_number,
+  v_active
+FROM "Cars"
+WHERE id = p_car_id AND deleted=false;
+
+IF NOT FOUND THEN
+    RAISE EXCEPTION 'Car does not exist or it is deleted';
+  END IF;
+
+IF v_active = false THEN
+RAISE EXCEPTION 'Car is under maintenance you can not create trip with this';
+END IF;
+
+SELECT
+  business_name,
+  full_name
+INTO 
+  v_business_name,
+  v_owner_name
+FROM profiles 
+WHERE id = v_owner_id;
+
+IF NOT FOUND THEN
+    RAISE EXCEPTION 'Owner does not exist';
+  END IF;
+
+  v_total_cost := (p_total_distance*v_price_perKm)+ v_driver_cost +(p_total_days - 1)*v_extra_day_cost;
+  v_profit :=v_total_cost - (p_total_distance*v_mileage) - v_driver_cost;
+
+  INSERT INTO trips(
+car_number,
+owner_name,
+owner_id ,
+car_id,
+car_name,
+business_name,
+trip_start_date,
+trip_end_date,
+customer_name,
+total_distance,
+total_cost,
+profit,
+total_days,
+booked_by_id,
+booked_by_role
   )
-  VALUES (
-    car_id,
-    user_id,
-    start_date,
-    end_date,
-    calculated_cost
-  );
+  VALUES(
+v_car_number,
+v_owner_name,
+v_owner_id,
+p_car_id,
+v_model,
+v_business_name,
+p_trip_start_date,
+p_trip_end_date,
+p_customer_name,
+p_total_distance,
+v_total_cost,
+v_profit,
+p_total_days,
+p_user_id,
+p_role
+  )
+  RETURNING id INTO trip_id;
 
-  RETURN json_build_object(
-    'status', 'success',
-    'message', 'Trip created successfully'
-  );
+  RETURN QUERY 
+  SELECT trip_id,v_total_cost , v_profit;
+
 END;
-$$ LANGUAGE plpgsql;
+$$;
 ```
 
 ### Benefits
@@ -156,22 +244,28 @@ Calculating average ratings dynamically using `AVG()` leads to O(N) scans and de
 FleetFlow maintains aggregate statistics incrementally using PostgreSQL triggers, guaranteeing constant-time updates with full transactional safety.
 
 ```sql
-CREATE OR REPLACE FUNCTION updateReviewAvg()
-RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION public."updateReviewAvg"()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-UPDATE Cars
-SET
-avg_rating =
-((COALESCE(avg_rating, 0) \* COALESCE(total_reviews, 0)) + NEW.rating)
-/ (COALESCE(total_reviews, 0) + 1),
-total_reviews = COALESCE(total_reviews, 0) + 1
-WHERE id = NEW.car_id;
+    UPDATE profiles
+    SET 
+        avg_rating = ((COALESCE(avg_rating, 0) * COALESCE(total_reviews, 0)) + NEW.rating) / (COALESCE(total_reviews, 0) + 1),
+        total_reviews = COALESCE(total_reviews, 0) + 1
+    WHERE id = NEW.owner_id AND role = 'owner';
 
-RETURN NEW;
+    UPDATE "Cars"
+    SET 
+        avg_rating = ((COALESCE(avg_rating, 0) * COALESCE(total_reviews, 0)) + NEW.car_rating) / (COALESCE(total_reviews, 0) + 1),
+        total_reviews = COALESCE(total_reviews, 0) + 1
+    WHERE id = NEW.car_id;
+
+    RETURN NEW;
 END;
-
-$$
-LANGUAGE plpgsql;
+$$;
 ```
 
 ### Why This Scales
@@ -188,7 +282,6 @@ LANGUAGE plpgsql;
 - **Zod Validation:** Strict runtime validation for all API inputs
 - **Row Level Security (RLS):** Users can only access their own records
 - **Rate Limiting:** Protection against abuse and DDoS attacks
-- **Centralized Error Handling:** Consistent and predictable API responses
 - **SQL Injection Safe:** Parameterized queries and RPC usage
 
 ---
@@ -198,9 +291,15 @@ LANGUAGE plpgsql;
 | Method | Endpoint         | Description                            | Access       |
 | ------ | ---------------- | -------------------------------------- | ------------ |
 | POST   | `/api/trips`     | Create a new trip (atomic & validated) | Auth         |
-| GET    | `/api/trips`     | Paginated trip history                 | User / Owner |
-| PATCH  | `/api/trips/:id` | Modify or cancel trip                  | Owner        |
+| GET    | `/api/trips`     | Paginated trip history                 | Owner        |
+| PATCH  | `/api/trips/:id` | Modify or cancel trip                  | User / Owner |
 | POST   | `/api/reviews`   | Add review (auto-aggregated)           | User         |
+| POST   | `/api/cars`      | Create a new car                       | Owner        |
+| GET    | `/api/cars`      | Get list of cars                       | User / Owner |
+| PATCH  | `/api/cars/:id`  | Modify,delete or set offline car       | Owner        |
+| GET    | `/api/cars/:id`  | Get schedule of car                    | User / Owner |
+| POST   | `/api/reviews`   | Add review (auto-aggregated)           | User         |
+
 
 ---
 
@@ -219,8 +318,8 @@ LANGUAGE plpgsql;
 Backend & Full-Stack Engineer
 Specializing in Distributed Systems and PostgreSQL-based Architectures
 
-- LinkedIn: https://linkedin.com/in/your-profile
-- GitHub: https://github.com/your-username
+- LinkedIn: https://www.linkedin.com/in/pravin-bhatkar-01547631a/
+- GitHub: https://github.com/psbhatkar70
 
 ---
 

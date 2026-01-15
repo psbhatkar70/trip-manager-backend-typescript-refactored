@@ -1,5 +1,4 @@
 import type { Request, Response  } from "express";
-import { error } from "node:console";
 import { supabase } from "../Models/database.js";
 import {  z } from "zod";
 
@@ -74,7 +73,7 @@ export const createTrip = async (req:Request , res:Response)=>{
             p_total_days : total_days,
             p_role :role
         })
-        
+
         if(error){
             if(error.code==="23P01"){
                 return res.status(409).json({message:"The car is booked for this dates..please choose another date"});
